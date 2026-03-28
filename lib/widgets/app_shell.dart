@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../services/ai_parse_service.dart';
+import '../services/speech_service.dart';
 
 /// Main app shell with bottom navigation and floating mic button
 class AppShell extends ConsumerWidget {
@@ -182,6 +183,7 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
   bool _isRecording = false;
   String _transcribedText = '';
   bool _isProcessing = false;
+  final SpeechService _speechService = SpeechService.instance;
 
   @override
   void initState() {
@@ -194,6 +196,9 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
 
   @override
   void dispose() {
+    if (_isRecording) {
+      _speechService.stopListening();
+    }
     _pulseController.dispose();
     super.dispose();
   }
@@ -241,7 +246,9 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
           Text(
             _isRecording
                 ? 'اضغط مرة أخرى لإيقاف التسجيل'
-                : 'اضغط على الميكروفون وتحدث',
+                : _isProcessing
+                    ? 'انتظر لحظة...'
+                    : 'اضغط على الميكروفون وتحدث',
             style: const TextStyle(
               fontFamily: 'Tajawal',
               fontSize: 14,
@@ -272,63 +279,73 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
                   height: 1.6,
                 ),
                 textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
               ),
             ),
 
           const Spacer(),
 
+          // Processing indicator
+          if (_isProcessing)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            ),
+
           // Mic button with pulse animation
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: _isRecording
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.errorColor.withOpacity(
-                              0.3 + (_pulseController.value * 0.2),
+          if (!_isProcessing)
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                return Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: _isRecording
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.errorColor.withOpacity(
+                                0.3 + (_pulseController.value * 0.2),
+                              ),
+                              blurRadius: 24 + (_pulseController.value * 16),
+                              spreadRadius: _pulseController.value * 8,
                             ),
-                            blurRadius: 24 + (_pulseController.value * 16),
-                            spreadRadius: _pulseController.value * 8,
-                          ),
-                        ]
-                      : AppTheme.glowShadow(AppTheme.primaryColor),
-                ),
-                child: Material(
-                  color: _isRecording ? AppTheme.errorColor : AppTheme.primaryColor,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: _toggleRecording,
-                    customBorder: const CircleBorder(),
-                    child: Icon(
-                      _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                      size: 40,
-                      color: Colors.white,
+                          ]
+                        : AppTheme.glowShadow(AppTheme.primaryColor),
+                  ),
+                  child: Material(
+                    color: _isRecording ? AppTheme.errorColor : AppTheme.primaryColor,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: _toggleRecording,
+                      customBorder: const CircleBorder(),
+                      child: Icon(
+                        _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                        size: 40,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
 
           const SizedBox(height: 16),
 
           // Text input alternative
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: TextButton.icon(
-              onPressed: _showTextInput,
-              icon: const Icon(Icons.keyboard_rounded, size: 18),
-              label: const Text('أو اكتب نصًا'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.textSecondary,
+          if (!_isProcessing)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextButton.icon(
+                onPressed: _showTextInput,
+                icon: const Icon(Icons.keyboard_rounded, size: 18),
+                label: const Text('أو اكتب نصًا'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textSecondary,
+                ),
               ),
             ),
-          ),
 
           SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
         ],
@@ -336,10 +353,90 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
     );
   }
 
-  void _toggleRecording() {
-    // On web, voice is not available via HTTP (needs HTTPS)
-    // Show text input instead as fallback
-    _showTextInput();
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      // ── Stop recording ──
+      await _speechService.stopListening();
+      setState(() {
+        _isRecording = false;
+        _pulseController.stop();
+        _pulseController.reset();
+      });
+
+      // If we got text, submit it
+      if (_transcribedText.trim().isNotEmpty) {
+        await _submitText(_transcribedText);
+      }
+    } else {
+      // ── Start recording ──
+      try {
+        final ready = await _speechService.initialize();
+        if (!ready) {
+          // Fallback to text input if mic not available
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'الميكروفون غير متاح، استخدم الكتابة',
+                  style: TextStyle(fontFamily: 'Tajawal'),
+                  textDirection: TextDirection.rtl,
+                ),
+                backgroundColor: Color(0xFFFFB74D),
+              ),
+            );
+            _showTextInput();
+          }
+          return;
+        }
+
+        setState(() {
+          _isRecording = true;
+          _transcribedText = '';
+          _pulseController.repeat(reverse: true);
+        });
+
+        await _speechService.startListening(
+          onResult: (text, isFinal) {
+            if (mounted) {
+              setState(() {
+                _transcribedText = text;
+              });
+
+              // Auto-submit when speech is final
+              if (isFinal && text.trim().isNotEmpty) {
+                _speechService.stopListening();
+                setState(() {
+                  _isRecording = false;
+                  _pulseController.stop();
+                  _pulseController.reset();
+                });
+                _submitText(text);
+              }
+            }
+          },
+        );
+      } catch (e) {
+        // If speech fails, fallback to text input
+        if (mounted) {
+          setState(() {
+            _isRecording = false;
+            _pulseController.stop();
+            _pulseController.reset();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'خطأ في الميكروفون: $e',
+                style: const TextStyle(fontFamily: 'Tajawal'),
+                textDirection: TextDirection.rtl,
+              ),
+              backgroundColor: const Color(0xFFFFB74D),
+            ),
+          );
+          _showTextInput();
+        }
+      }
+    }
   }
 
   void _showTextInput() {
