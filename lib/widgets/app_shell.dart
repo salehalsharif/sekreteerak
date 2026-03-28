@@ -443,13 +443,19 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
     showDialog(
       context: context,
       builder: (ctx) => _TextInputDialog(
-        onSubmit: (text) => _submitText(text),
+        onSubmit: (text) {
+          // Close the dialog first
+          Navigator.of(ctx).pop();
+          // Then process the text
+          _submitText(text);
+        },
       ),
     );
   }
 
   Future<void> _submitText(String text) async {
     if (text.trim().isEmpty) return;
+
     setState(() {
       _transcribedText = text;
       _isProcessing = true;
@@ -461,17 +467,17 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
         source: 'text',
       );
 
-      // Create the task from parsed result
       await AiParseService.instance.createTaskFromParsed(result);
 
       if (mounted) {
-        // Invalidate providers to refresh home
         ref.invalidate(todayTasksProvider);
         ref.invalidate(overdueTasksProvider);
         ref.invalidate(taskCountsProvider);
 
-        Navigator.pop(context);
+        // Close the bottom sheet
+        Navigator.of(context).pop();
 
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -490,7 +496,7 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'فشل التحليل: $e',
+              'حدث خطأ، حاول مرة أخرى',
               style: const TextStyle(fontFamily: 'Tajawal'),
               textDirection: TextDirection.rtl,
             ),
