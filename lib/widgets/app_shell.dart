@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
+import '../services/ai_parse_service.dart';
 
 /// Main app shell with bottom navigation and floating mic button
 class AppShell extends ConsumerWidget {
@@ -335,40 +336,74 @@ class _VoiceCaptureSheetState extends ConsumerState<_VoiceCaptureSheet>
   }
 
   void _toggleRecording() {
-    setState(() {
-      _isRecording = !_isRecording;
-      if (_isRecording) {
-        _pulseController.repeat(reverse: true);
-        _transcribedText = '';
-        // Start actual recording via AudioService + SpeechService
-      } else {
-        _pulseController.stop();
-        _pulseController.reset();
-        _isProcessing = true;
-        // Stop recording, send to AI parse, show preview
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() => _isProcessing = false);
-            Navigator.pop(context);
-            // Navigate to parsed preview
-          }
-        });
-      }
-    });
+    // On web, voice is not available via HTTP (needs HTTPS)
+    // Show text input instead as fallback
+    _showTextInput();
   }
 
   void _showTextInput() {
     showDialog(
       context: context,
       builder: (ctx) => _TextInputDialog(
-        onSubmit: (text) {
-          Navigator.pop(context);
-          // Process text input through AI parse
-        },
+        onSubmit: (text) => _submitText(text),
       ),
     );
   }
+
+  Future<void> _submitText(String text) async {
+    if (text.trim().isEmpty) return;
+    setState(() {
+      _transcribedText = text;
+      _isProcessing = true;
+    });
+
+    try {
+      final result = await AiParseService.instance.parseInput(
+        rawText: text,
+        source: 'text',
+      );
+
+      // Create the task from parsed result
+      await AiParseService.instance.createTaskFromParsed(result);
+
+      if (mounted) {
+        // Invalidate providers to refresh home
+        ref.invalidate(todayTasksProvider);
+        ref.invalidate(overdueTasksProvider);
+        ref.invalidate(taskCountsProvider);
+
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.confirmationText,
+              style: const TextStyle(fontFamily: 'Tajawal'),
+              textDirection: TextDirection.rtl,
+            ),
+            backgroundColor: const Color(0xFF00D9A6),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'فشل التحليل: $e',
+              style: const TextStyle(fontFamily: 'Tajawal'),
+              textDirection: TextDirection.rtl,
+            ),
+            backgroundColor: const Color(0xFFFF5252),
+          ),
+        );
+      }
+    }
+  }
 }
+
 
 /// Text input dialog as alternative to voice
 class _TextInputDialog extends StatefulWidget {

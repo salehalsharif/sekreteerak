@@ -5,6 +5,7 @@ import '../models/inbox_entry_model.dart';
 import '../models/user_settings_model.dart';
 import '../models/daily_briefing_model.dart';
 import '../services/supabase_service.dart';
+import '../services/ai_parse_service.dart';
 
 /// ──────────────────────────────────────────────────
 /// Auth Provider
@@ -21,31 +22,31 @@ final currentUserProvider = Provider<User?>((ref) {
 /// Tasks Providers
 /// ──────────────────────────────────────────────────
 final todayTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
-  return await SupabaseService.instance.getTodayTasks();
+  try { return await SupabaseService.instance.getTodayTasks(); } catch (_) { return []; }
 });
 
 final overdueTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
-  return await SupabaseService.instance.getOverdueTasks();
+  try { return await SupabaseService.instance.getOverdueTasks(); } catch (_) { return []; }
 });
 
 final upcomingTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
-  return await SupabaseService.instance.getUpcomingTasks();
+  try { return await SupabaseService.instance.getUpcomingTasks(); } catch (_) { return []; }
 });
 
 final allTasksProvider = FutureProvider.family<List<TaskModel>, TaskStatus?>((ref, status) async {
-  return await SupabaseService.instance.getTasks(status: status);
+  try { return await SupabaseService.instance.getTasks(status: status); } catch (_) { return []; }
 });
 
 final followupTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
-  return await SupabaseService.instance.getFollowups();
+  try { return await SupabaseService.instance.getFollowups(); } catch (_) { return []; }
 });
 
 final taskDetailProvider = FutureProvider.family<TaskModel?, String>((ref, taskId) async {
-  return await SupabaseService.instance.getTask(taskId);
+  try { return await SupabaseService.instance.getTask(taskId); } catch (_) { return null; }
 });
 
 final taskCountsProvider = FutureProvider<Map<String, int>>((ref) async {
-  return await SupabaseService.instance.getTaskCounts();
+  try { return await SupabaseService.instance.getTaskCounts(); } catch (_) { return {'today': 0, 'overdue': 0, 'followup': 0}; }
 });
 
 /// ──────────────────────────────────────────────────
@@ -79,3 +80,19 @@ final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
 /// ──────────────────────────────────────────────────
 final isRecordingProvider = StateProvider<bool>((ref) => false);
 final transcribedTextProvider = StateProvider<String>((ref) => '');
+
+/// ──────────────────────────────────────────────────
+/// AI Parse Provider
+/// ──────────────────────────────────────────────────
+
+/// The text currently being submitted for parsing
+final pendingParseTextProvider = StateProvider<String>((ref) => '');
+
+/// Whether a parse operation is in progress
+final isParsingProvider = StateProvider<bool>((ref) => false);
+
+/// Result of last successful parse
+final lastParseResultProvider = StateProvider<ParseResult?>((ref) => null);
+
+/// Error message from last parse (null if none)
+final parseErrorProvider = StateProvider<String?>((ref) => null);
