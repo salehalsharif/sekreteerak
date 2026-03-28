@@ -1,0 +1,36 @@
+# Flutter
+*.dart_tool/
+.packages
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Build
+*.apk
+*.aab
+*.ipa
+*.app
+
+# Misc
+*.log
+coverage/
