@@ -25,14 +25,22 @@ void main() async {
     ),
   );
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
-  );
+  // Initialize Supabase (graceful if not configured)
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (_) {
+    // Supabase not configured — running in local-only mode
+  }
 
-  // Initialize notifications
-  await NotificationService.instance.initialize();
+  // Initialize notifications (graceful on web)
+  try {
+    await NotificationService.instance.initialize();
+  } catch (_) {
+    // Notifications not available on this platform
+  }
 
   runApp(
     const ProviderScope(
