@@ -257,9 +257,9 @@ class HomeScreen extends ConsumerWidget {
     return Row(
       children: [
         _statCard('اليوم', '${counts['today'] ?? 0}', AppTheme.primaryColor),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _statCard('متأخرة', '${counts['overdue'] ?? 0}', AppTheme.errorColor),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         _statCard('متابعات', '${counts['followup'] ?? 0}', AppTheme.warningColor),
       ],
     );
@@ -268,7 +268,7 @@ class HomeScreen extends ConsumerWidget {
   Widget _statCard(String label, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
           color: AppTheme.surfaceColor,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -283,19 +283,20 @@ class HomeScreen extends ConsumerWidget {
               value,
               style: TextStyle(
                 fontFamily: 'Tajawal',
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: color,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: const TextStyle(
                 fontFamily: 'Tajawal',
-                fontSize: 12,
+                fontSize: 11,
                 color: AppTheme.textMuted,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

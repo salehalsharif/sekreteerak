@@ -26,8 +26,8 @@ class AppShell extends ConsumerWidget {
 
   Widget _buildMicFAB(BuildContext context) {
     return Container(
-      height: 64,
-      width: 64,
+      height: 58,
+      width: 58,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: AppTheme.primaryGradient,
@@ -40,7 +40,7 @@ class AppShell extends ConsumerWidget {
         heroTag: 'mic_fab',
         child: const Icon(
           Icons.mic_rounded,
-          size: 30,
+          size: 28,
           color: Colors.white,
         ),
       ),
@@ -80,7 +80,7 @@ class AppShell extends ConsumerWidget {
                 route: '/tasks',
                 currentIndex: currentIndex,
               ),
-              const SizedBox(width: 64), // Space for FAB
+              const SizedBox(width: 58), // Space for FAB
               _navItem(
                 context, ref,
                 icon: Icons.people_alt_rounded,
@@ -141,15 +141,16 @@ class AppShell extends ConsumerWidget {
                 color: isActive ? AppTheme.primaryColor : AppTheme.textMuted,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 fontFamily: 'Tajawal',
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 color: isActive ? AppTheme.primaryColor : AppTheme.textMuted,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
